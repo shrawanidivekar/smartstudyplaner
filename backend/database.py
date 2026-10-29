@@ -111,38 +111,13 @@ def init_db():
     conn.close()
     seed_demo_data()
 
-def seed_demo_data():
-    conn = get_db_connection()
+def seed_subjects_for_user(conn, user_id: int):
     cursor = conn.cursor()
+    cursor.execute("SELECT count(*) as count FROM Subjects WHERE user_id = ?", (user_id,))
+    if cursor.fetchone()["count"] > 0:
+        return
 
-    cursor.execute("SELECT id FROM Users WHERE email = ?", ("student@college.edu",))
-    existing_user = cursor.fetchone()
-    
     today = datetime.date.today()
-    
-    if not existing_user:
-        # Create Demo User
-        pwd_hash = hash_password("student123")
-        cursor.execute("""
-            INSERT INTO Users (name, email, password_hash, course, semester, college, daily_available_hours)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            "Alex Sharma",
-            "student@college.edu",
-            pwd_hash,
-            "B.Tech Computer Science & Engineering",
-            "Semester 6",
-            "National Institute of Technology",
-            4.5
-        ))
-        user_id = cursor.lastrowid
-    else:
-        user_id = existing_user["id"]
-        # If subjects already seeded for this user, return
-        cursor.execute("SELECT count(*) as count FROM Subjects WHERE user_id = ?", (user_id,))
-        if cursor.fetchone()["count"] > 0:
-            conn.close()
-            return
 
     # Seed 5 Core Subjects with realistic exam dates relative to current date
     subjects_data = [
@@ -235,6 +210,35 @@ def seed_demo_data():
         """, (user_id, subject_ids["Machine Learning"] if i % 2 == 0 else subject_ids["DBMS"], duration, session_date, "study"))
 
     conn.commit()
+
+def seed_demo_data():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM Users WHERE email = ?", ("student@college.edu",))
+    existing_user = cursor.fetchone()
+    
+    if not existing_user:
+        # Create Demo User
+        pwd_hash = hash_password("student123")
+        cursor.execute("""
+            INSERT INTO Users (name, email, password_hash, course, semester, college, daily_available_hours)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            "Alex Sharma",
+            "student@college.edu",
+            pwd_hash,
+            "B.Tech Computer Science & Engineering",
+            "Semester 6",
+            "National Institute of Technology",
+            4.5
+        ))
+        user_id = cursor.lastrowid
+        conn.commit()
+    else:
+        user_id = existing_user["id"]
+
+    seed_subjects_for_user(conn, user_id)
     conn.close()
     print("[Database] Schema initialized and realistic demo data seeded successfully.")
 

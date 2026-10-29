@@ -19,7 +19,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from backend.database import get_db_connection, init_db, hash_password, verify_password
+from backend.database import get_db_connection, init_db, hash_password, verify_password, seed_subjects_for_user
 from ml.priority_model import priority_predictor
 from ml.score_prediction import score_predictor
 
@@ -194,6 +194,7 @@ def register(user: UserRegister):
         user.daily_available_hours
     ))
     new_user_id = cursor.lastrowid
+    seed_subjects_for_user(conn, new_user_id)
     conn.commit()
     conn.close()
 
@@ -656,8 +657,9 @@ def generate_study_plan(req: GeneratePlanRequest, user_id: int = Depends(get_cur
     cursor.execute("SELECT * FROM Subjects WHERE user_id = ?", (user_id,))
     raw_subjects = [dict(r) for r in cursor.fetchall()]
     if not raw_subjects:
-        conn.close()
-        raise HTTPException(status_code=400, detail="Please add at least one subject first before generating a plan.")
+        seed_subjects_for_user(conn, user_id)
+        cursor.execute("SELECT * FROM Subjects WHERE user_id = ?", (user_id,))
+        raw_subjects = [dict(r) for r in cursor.fetchall()]
 
     enriched_subjects = [enrich_subject_with_ml(s) for s in raw_subjects]
     # Sort by priority score descending
